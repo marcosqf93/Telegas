@@ -1,0 +1,14 @@
+import type { Metadata } from 'next';
+import { SectionHeading } from '@/components/ui/section-heading';
+import { ButtonLink } from '@/components/ui/button';
+import { Breadcrumbs } from '@/components/breadcrumbs';
+
+export const metadata: Metadata = {
+  title: 'Chama Premiada',
+  description: 'Página da promoção Chama Premiada.',
+  alternates: { canonical: '/chama-premiada' }
+};
+
+export default function ChamaPremiadaPage() {
+  return <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-8"><Breadcrumbs items={[{ label: 'Início', href: '/' }, { label: 'Chama Premiada' }]} /><SectionHeading eyebrow="Promoção" title="Chama Premiada" description="Conteúdo promocional em HTML, pronto para receber regulamento, datas, premiados e galeria." /><div className="grid gap-6 lg:grid-cols-[1fr_0.8fr]"><div className="space-y-6"><div className="rounded-3xl border border-border bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Como participar</h2><p className="mt-3 text-sm leading-6 text-foreground/75">A participação depende das regras oficiais da campanha. O conteúdo deve ser aprovado pelo cliente antes da publicação final.</p></div><div className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4"><strong className="block">Datas</strong><span className="text-sm text-foreground/70">a confirmar</span></div><div className="rounded-2xl bg-slate-50 p-4"><strong className="block">Premiações</strong><span className="text-sm text-foreground/70">a confirmar</span></div><div className="rounded-2xl bg-slate-50 p-4"><strong className="block">Regulamento</strong><span className="text-sm text-foreground/70">a confirmar</span></div><div className="rounded-2xl bg-slate-50 p-4"><strong className="block">Últimos ganhadores</strong><span className="text-sm text-foreground/70">a confirmar</span></div></div><div className="rounded-3xl border border-border bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Galeria</h2><p className="mt-3 text-sm leading-6 text-foreground/75">Espaço reservado para fotos da campanha, entrega e ganhadores.</p><div className="mt-4 grid grid-cols-2 gap-3"><div className="aspect-square rounded-2xl bg-slate-100" /><div className="aspect-square rounded-2xl bg-slate-100" /><div className="aspect-square rounded-2xl bg-slate-100" /><div className="aspect-square rounded-2xl bg-slate-100" /></div></div></div><div className="rounded-3xl bg-graphite p-6 text-white"><h3 className="text-xl font-semibold">Acompanhe a campanha</h3><p className="mt-3 text-sm leading-6 text-white/75">Use esta página para divulgar o sorteio sem perder a identidade comercial da Tele Gás.</p><div className="mt-6"><ButtonLink href="/pedido" className="bg-brand-500 hover:bg-brand-600">Pedir gás e participar</ButtonLink></div></div></div></section>;
+}

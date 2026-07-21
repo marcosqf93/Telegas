@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-brand-50: #fff1ea;
+  --color-brand-100: #ffd9c9;
+  --color-brand-200: #ffb595;
+  --color-brand-300: #ff9466;
+  --color-brand-400: #ff7a1a;
+  --color-brand-500: #ff4b00;
+  --color-brand-600: #d93600;
+  --color-brand-700: #b52d00;
+  --color-brand-800: #8f2400;
+  --color-brand-900: #661a00;
+  --color-background: #ffffff;
+  --color-surface: #f3f4f6;
+  --color-foreground: #0b0b0b;
+  --color-muted: #303030;
+  --color-border: #e5e7eb;
+  --color-graphite: #1b1b1b;
+  --color-accent: #ffb000;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter), Inter, Arial, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-montserrat), Montserrat, Poppins, Inter, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[data-reveal='true'] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 650ms ease, transform 650ms ease;
+  will-change: opacity, transform;
+}
+
+[data-reveal='true'][data-visible='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-parallax] {
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='true'] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  [data-parallax] {
+    transform: none !important;
+  }
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+::selection {
+  background: rgba(255, 75, 0, 0.18);
+}
