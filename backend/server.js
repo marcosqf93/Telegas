@@ -10,6 +10,8 @@ const app = express();
 const port = process.env.PORT || 3001;
 const jwtSecret = process.env.JWT_SECRET || 'dev-secret';
 const frontendUrl = process.env.FRONTEND_URL || '*';
+const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const adminPassword = String(process.env.ADMIN_PASSWORD || '');
 
 const pairCodes = new Map();
 
@@ -57,17 +59,24 @@ app.get('/health', (_, res) => {
   res.json({ ok: true, service: 'telegas-api' });
 });
 
-app.post('/admin/pair/request', async (req, res) => {
+function verifyAdminCredentials(email, password) {
+  if (!adminEmail || !adminPassword) return false;
+  return email === adminEmail && password === adminPassword;
+}
+
+function handleAdminAuthRequest(req, res) {
   const email = String(req.body?.email || '').trim().toLowerCase();
-  if (!email) return res.status(400).json({ error: 'Informe o e-mail.' });
+  const password = String(req.body?.password || '');
+  if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' });
+  if (!verifyAdminCredentials(email, password)) return res.status(401).json({ error: 'Credenciais inválidas.' });
 
   const code = createTempCode();
   const expiresAt = Date.now() + 10 * 60 * 1000;
   pairCodes.set(email, { email, code, expiresAt });
-  res.json({ ok: true, email, code, expiresAt });
-});
+  res.json({ ok: true, email, code, expiresAt, prompt: 'Aprovar uma solicitação em meu aplicativo Tele Gás' });
+}
 
-app.post('/admin/pair/confirm', async (req, res) => {
+function handleAdminAuthConfirm(req, res) {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const code = String(req.body?.code || '').trim();
   if (!email || !code) return res.status(400).json({ error: 'Informe o e-mail e o código.' });
@@ -85,7 +94,12 @@ app.post('/admin/pair/confirm', async (req, res) => {
   };
 
   res.json({ ok: true, session });
-});
+}
+
+app.post('/admin/auth/request', async (req, res) => handleAdminAuthRequest(req, res));
+app.post('/admin/auth/confirm', async (req, res) => handleAdminAuthConfirm(req, res));
+app.post('/admin/pair/request', async (req, res) => handleAdminAuthRequest(req, res));
+app.post('/admin/pair/confirm', async (req, res) => handleAdminAuthConfirm(req, res));
 
 app.post('/orders', authRequired, async (req, res) => {
   const collection = await ordersCollection();

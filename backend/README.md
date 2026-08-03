@@ -13,10 +13,14 @@ npm start
 - `MONGODB_URI`
 - `JWT_SECRET`
 - `FRONTEND_URL`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 
 ## Routes
 
 - `GET /health`
+- `POST /admin/auth/request`
+- `POST /admin/auth/confirm`
 - `POST /admin/pair/request`
 - `POST /admin/pair/confirm`
 - `POST /orders`
