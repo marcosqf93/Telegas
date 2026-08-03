@@ -44,6 +44,7 @@ const SESSION_KEY = 'telegas:admin-session';
 const PENDING_CODE_KEY = 'telegas:admin-pair-code';
 const ORDERS_KEY = 'telegas:admin-orders';
 const DRIVERS_KEY = 'telegas:admin-drivers';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
 
 const seedOrders: AdminOrder[] = [
   { id: '#1048', customer: 'Carla Souza', city: 'aquidauana', product: 'Gás P13', quantity: 1, status: 'Novo', driverId: null, address: 'Santa Terezinha, Aquidauana', updatedAt: new Date().toISOString() },
@@ -129,7 +130,7 @@ export function AdminPanel() {
 
   const requestCode = () => {
     if (!email.trim()) return;
-    void fetch('/api/admin/pair/request', {
+    void fetch(`${API_BASE_URL}/admin/pair/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
@@ -146,7 +147,7 @@ export function AdminPanel() {
   const confirmCode = () => {
     if (!pendingCode) return;
 
-    void fetch('/api/admin/pair/confirm', {
+    void fetch(`${API_BASE_URL}/admin/pair/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code: enteredCode })
