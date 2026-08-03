@@ -1,7 +1,7 @@
 import type { CityKey } from './site-data';
 
 export function formatCurrency(value: number | null | undefined) {
-  if (value == null) return 'Preço a confirmar';
+  if (value == null) return 'Consulte a unidade';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'

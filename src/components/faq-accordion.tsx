@@ -12,7 +12,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
       {items.map((item, index) => {
         const open = openIndex === index;
         return (
-          <div key={item.question} className="rounded-2xl border border-border bg-white">
+          <div key={item.question} className="rounded-[1.4rem] border border-white/25 bg-white/70 shadow-[0_10px_24px_rgba(0,0,0,0.06)] backdrop-blur-md">
             <button
               type="button"
               className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"

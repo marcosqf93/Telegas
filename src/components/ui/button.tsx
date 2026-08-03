@@ -1,8 +1,22 @@
 import Link from 'next/link';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
+import { Flame } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 
 type BaseProps = { children: ReactNode; className?: string };
+
+function renderWithIcon(children: ReactNode) {
+  if (typeof children === 'string' && (children.includes('Pedir meu gás') || children.includes('Pedir nesta unidade'))) {
+    return (
+      <>
+        <Flame className="h-5 w-5 text-current" aria-hidden="true" />
+        {children}
+      </>
+    );
+  }
+
+  return children;
+}
 
 export function Button({ children, className, ...props }: BaseProps & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -14,7 +28,7 @@ export function Button({ children, className, ...props }: BaseProps & ButtonHTML
         className
       )}
     >
-      {children}
+      {renderWithIcon(children)}
     </button>
   );
 }
@@ -29,7 +43,7 @@ export function ButtonLink({ children, className, ...props }: BaseProps & Anchor
         className
       )}
     >
-      {children}
+      {renderWithIcon(children)}
     </Link>
   );
 }

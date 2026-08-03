@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, PhoneCall, MessageCircle, Instagram, Star, BadgeCheck } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLd } from '@/components/json-ld';
 import { SectionHeading } from '@/components/ui/section-heading';
+import { HoursDisclosure } from '@/components/hours-disclosure';
 import { units, brand, aquidauanaReviews, aquidauanaBranches } from '@/lib/site-data';
 import { UnitCard } from '@/components/unit-card';
 import { AutoSlideReviews } from './reviews-auto-slide';
@@ -37,6 +39,7 @@ export default function AquidauanaPage() {
               <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3"><PhoneCall className="h-4 w-4 text-brand-600" />{unit.phoneDisplay}</div>
               <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3"><MessageCircle className="h-4 w-4 text-brand-600" />{unit.whatsappDisplay}</div>
               <a href={unit.instagramUrl ?? '#'} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3"><Instagram className="h-4 w-4 text-brand-600" />Instagram da unidade</a>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3"><HoursDisclosure hours={unit.hours} /></div>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -79,6 +82,16 @@ export default function AquidauanaPage() {
 
         <div className="space-y-6">
           <SectionHeading eyebrow="Avaliações" title="O que falam da matriz" description="Depoimentos reais organizados em um carrossel leve para celular." />
+          {unit.image ? (
+            <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
+              <div className="relative h-64 w-full sm:h-72">
+                <Image src={unit.image} alt={unit.name} fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
+              </div>
+              <div className="p-4 text-sm leading-6 text-foreground/70">
+                Imagem da unidade exibida junto das avaliações do Google.
+              </div>
+            </div>
+          ) : null}
           <AutoSlideReviews reviews={aquidauanaReviews} />
           <div className="rounded-3xl bg-slate-50 p-5 text-sm leading-6 text-foreground/70">
             5,0 estrelas · mais de 2 mil avaliações

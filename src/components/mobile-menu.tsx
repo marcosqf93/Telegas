@@ -32,21 +32,21 @@ export function MobileMenu() {
         aria-controls="mobile-menu"
         aria-label="Abrir menu"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/10 text-white"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
       {open ? (
-        <div id="mobile-menu" className="absolute left-0 top-full w-full border-b border-border bg-white shadow-soft">
+        <div id="mobile-menu" className="absolute left-0 top-full w-full border-b border-white/15 bg-[linear-gradient(180deg,#ff7a1a_0%,#ff5a1f_100%)] shadow-soft">
           <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
             <nav className="grid gap-2">
               {items.map(([label, href]) => (
-                <Link key={href} href={href} onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 font-medium text-foreground transition hover:bg-brand-50 hover:text-brand-600">
+                <Link key={href} href={href} onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 font-medium text-white transition hover:bg-white/10 hover:text-white/90">
                   {label}
                 </Link>
               ))}
-              <Link href="/pedido" onClick={() => setOpen(false)} className="mt-2 inline-flex items-center justify-center rounded-full bg-brand-500 px-5 py-3 font-semibold text-white">
-                Pedir gás
+              <Link href="/pedido" onClick={() => setOpen(false)} className="mt-2 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 font-semibold text-brand-700">
+                Pedir meu gás
               </Link>
             </nav>
           </div>

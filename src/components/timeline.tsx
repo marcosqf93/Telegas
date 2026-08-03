@@ -8,11 +8,11 @@ export function Timeline({ items }: { items: Item[] }) {
           <span className="absolute left-[-1.4rem] top-1 h-4 w-4 rounded-full border-4 border-white bg-brand-500 shadow-sm" />
           <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-sm font-semibold text-brand-600">{item.year}</p>
-              <span className="text-xs uppercase tracking-[0.2em] text-foreground/40">Marco</span>
+              <p className="text-xs font-semibold text-brand-600">{item.year}</p>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-foreground/40">Marco</span>
             </div>
-            <h3 className="mt-1 text-lg font-semibold text-foreground">{item.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-foreground/75">{item.text}</p>
+            <h3 className="mt-1 text-base font-semibold text-foreground">{item.title}</h3>
+            <p className="mt-2 text-xs leading-5 text-foreground/75">{item.text}</p>
           </div>
         </div>
       ))}

@@ -68,6 +68,27 @@ h1, h2, h3, h4 {
   }
 }
 
+@keyframes swipe-right {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-swipe-right {
+  animation: swipe-right 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-swipe-right {
+    animation: none;
+  }
+}
+
 a {
   text-decoration: none;
   color: inherit;

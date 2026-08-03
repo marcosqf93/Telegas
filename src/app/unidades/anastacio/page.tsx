@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { BadgeCheck, MapPin, MessageCircle, PhoneCall, Star } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { AutoSlideReviews } from '@/components/auto-slide-reviews';
+import { HoursDisclosure } from '@/components/hours-disclosure';
 import { JsonLd } from '@/components/json-ld';
 import { SectionHeading } from '@/components/ui/section-heading';
-import { anastacioReviews, brand, units } from '@/lib/site-data';
+import { anastacioBranches, anastacioReviews, brand, units } from '@/lib/site-data';
 
 export const metadata: Metadata = {
-  title: 'Unidade Anastácio',
-  description: 'Unidade Tele Gás Anastácio com endereço, WhatsApp, imagem e avaliações do Google.',
+  title: 'Unidade 27 de Julho',
+  description: 'Unidade Tele Gás 27 de Julho em Anastácio com endereço, WhatsApp, imagem e avaliações do Google.',
   alternates: { canonical: '/unidades/anastacio' }
 };
 
@@ -19,12 +20,12 @@ export default function AnastacioPage() {
 
   return (
     <section className="mx-auto max-w-7xl space-y-10 px-4 py-12 sm:px-6 lg:px-8">
-      <Breadcrumbs items={[{ label: 'Início', href: '/' }, { label: 'Unidades', href: '/unidades' }, { label: 'Anastácio' }]} />
+      <Breadcrumbs items={[{ label: 'Início', href: '/' }, { label: 'Unidades', href: '/unidades' }, { label: '27 de Julho' }]} />
       <JsonLd data={{ '@context': 'https://schema.org', '@type': 'LocalBusiness', name: unit.name, url: `https://${brand.domain}/unidades/anastacio`, telephone: unit.phoneDisplay, areaServed: ['Anastácio'] }} />
 
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <SectionHeading eyebrow="Unidade" title={unit.name} description="Endereço confirmado, contato direto e avaliações reais para a cidade de Anastácio." />
+            <SectionHeading eyebrow="Unidade" title={unit.name} description="Endereço confirmado, contato direto e avaliações reais para a 27 de Julho em Anastácio." />
 
           <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
             <div className="relative h-72 w-full bg-slate-100 sm:h-[28rem]">
@@ -55,6 +56,7 @@ export default function AnastacioPage() {
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground"><MessageCircle className="h-4 w-4 text-brand-600" />WhatsApp</div>
                 <p className="mt-2 text-sm text-foreground/70">{unit.whatsappDisplay}</p>
               </div>
+              <HoursDisclosure hours={unit.hours} />
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-border p-6">
@@ -63,13 +65,49 @@ export default function AnastacioPage() {
             </div>
           </div>
 
+          <div className="rounded-3xl border border-border bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-foreground">Unidades em Anastácio</h2>
+            <p className="mt-2 text-sm leading-6 text-foreground/70">No pedido, o cliente escolhe a unidade mais próxima para agilizar a entrega.</p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {anastacioBranches.map((branch) => (
+                <article key={branch.key} className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-foreground">{branch.name}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-brand-600">Anastácio</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground/70">{branch.address}</p>
+                  <div className="mt-4 space-y-1 text-sm text-foreground/70">
+                    <p>{branch.phoneDisplay}</p>
+                    <p>{branch.whatsappDisplay}</p>
+                  </div>
+                  {branch.mapUrl ? <a href={branch.mapUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground">Abrir mapa</a> : null}
+                </article>
+              ))}
+            </div>
+          </div>
+
         </div>
 
         <div className="space-y-6">
           <SectionHeading eyebrow="Avaliações" title="O que falam da unidade" description="Comentários reais organizados para leitura rápida e com foco em conversão." />
           <AutoSlideReviews reviews={anastacioReviews} />
+          <div className="grid gap-4">
+            {anastacioReviews.map((review) => (
+              <article key={review.name} className="rounded-3xl border border-border bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-foreground">{review.name}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-brand-600">Google</p>
+                  </div>
+                  <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
+                    <Star className="h-4 w-4 fill-current" />
+                    {review.rating.toFixed(1)}
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-foreground/75">{review.comment}</p>
+              </article>
+            ))}
+          </div>
           <div className="rounded-3xl bg-slate-50 p-5 text-sm leading-6 text-foreground/70">
-            4,7 estrelas no Google · 4 avaliações confirmadas
+            5,0 estrelas no Google · 33 avaliações confirmadas
           </div>
           <div className="rounded-3xl border border-border bg-white p-5 text-sm leading-6 text-foreground/70 shadow-sm">
             <BadgeCheck className="mb-3 h-5 w-5 text-brand-600" />

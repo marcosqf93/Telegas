@@ -4,7 +4,7 @@ import { EmptyState } from './ui/empty-state';
 
 export function ProductGrid() {
   if (!products.length) {
-    return <EmptyState title="Produtos em atualização" description="A lista de produtos será preenchida após a confirmação do catálogo com o cliente." actionHref="/contato" actionLabel="Falar com a Tele Gás" />;
+    return <EmptyState title="Produtos indisponíveis" description="A lista de produtos será atualizada em breve." actionHref="/contato" actionLabel="Falar com a Tele Gás" />;
   }
 
   return (

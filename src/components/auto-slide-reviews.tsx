@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Star } from 'lucide-react';
 import type { UnitReview } from '@/lib/site-data';
 
@@ -22,29 +23,42 @@ export function AutoSlideReviews({ reviews }: { reviews: UnitReview[] }) {
 
   return (
     <div
-      className="rounded-3xl bg-graphite p-4 text-white shadow-soft"
+      className="rounded-3xl bg-white p-4 text-foreground shadow-soft"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={() => setPaused(true)}
       onTouchEnd={() => setPaused(false)}
     >
-      <article key={`${activeReview.name}-${activeIndex}`} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <article key={`${activeReview.name}-${activeIndex}`} className="rounded-2xl border border-border bg-white p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">{activeReview.name.charAt(0)}</div>
+            <div className="relative h-11 w-11 overflow-hidden rounded-full bg-slate-100">
+              {activeReview.image ? (
+                <Image src={activeReview.image} alt={activeReview.name} fill sizes="44px" className="object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold">{activeReview.name.charAt(0)}</div>
+              )}
+            </div>
             <div>
-              <p className="font-semibold leading-none">{activeReview.name}</p>
-              <p className="mt-1 text-xs text-white/60">{activeReview.reviewCount}</p>
+              <p className="font-semibold leading-none text-foreground">{activeReview.name}</p>
+              <p className="mt-1 text-xs text-foreground/60">{activeReview.reviewCount}</p>
             </div>
           </div>
-          <span className="text-xs text-white/50">{activeReview.timeAgo}</span>
+          <span className="text-xs text-foreground/50">{activeReview.timeAgo}</span>
         </div>
-        <div className="mt-4 flex items-center gap-1 text-accent">
+        <div className="mt-4 flex items-center gap-1 text-amber-500">
           {Array.from({ length: activeReview.rating }).map((_, starIndex) => <Star key={starIndex} className="h-4 w-4 fill-current" />)}
         </div>
-        <p className="mt-4 min-h-24 text-sm leading-6 text-white/80">{activeReview.comment}</p>
+        <p className="mt-4 min-h-24 text-sm leading-6 text-foreground/80">{activeReview.comment}</p>
         <div className="mt-5 flex items-center justify-end gap-3">
-          {activeReview.link ? <a href={activeReview.link} target="_blank" rel="noreferrer" className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white">Ver no Google</a> : null}
+          {activeReview.link ? (
+            <a href={activeReview.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-950 via-cyan-950 to-slate-900 px-4 py-2 text-sm font-semibold text-white hover:brightness-110">
+              <span>Ver no</span>
+              <span className="relative h-4 w-4 overflow-hidden rounded-sm" aria-hidden="true">
+                <Image src="https://i.postimg.cc/QMqXM4Jx/Google-G-logo-svg.webp" alt="" fill sizes="16px" className="object-contain" />
+              </span>
+            </a>
+          ) : null}
         </div>
       </article>
       <div className="mt-4 flex items-center justify-center gap-2">

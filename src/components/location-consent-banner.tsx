@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { MapPin, ShieldCheck, X } from 'lucide-react';
 import { getLocalStorage, setLocalStorage } from '@/lib/utils';
-import { nearestBranch } from '@/lib/location-utils';
+import { nearestBranch, nearestCity } from '@/lib/location-utils';
 import { aquidauanaBranches } from '@/lib/site-data';
+import type { CityKey } from '@/lib/site-data';
 
-type SavedLocation = { accepted: boolean; branchKey?: string };
+type SavedLocation = { accepted: boolean; branchKey?: string; cityKey?: CityKey };
 
 const STORAGE_KEY = 'telegas:location-consent';
 
@@ -23,6 +24,13 @@ export function LocationConsentBanner() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!branchName) return;
+
+    const timer = window.setTimeout(() => setBranchName(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [branchName]);
+
   const requestLocation = () => {
     if (!navigator.geolocation) return;
 
@@ -32,10 +40,12 @@ export function LocationConsentBanner() {
           { lat: position.coords.latitude, lng: position.coords.longitude },
           aquidauanaBranches
         );
+        const city = nearestCity({ lat: position.coords.latitude, lng: position.coords.longitude });
 
         setBranchName(branch.name);
-        setLocalStorage(STORAGE_KEY, { accepted: true, branchKey: branch.key });
+        setLocalStorage(STORAGE_KEY, { accepted: true, branchKey: branch.key, cityKey: city });
         setVisible(false);
+        window.dispatchEvent(new CustomEvent('telegas:city-updated', { detail: { city } }));
         window.dispatchEvent(new CustomEvent('telegas:location-updated', { detail: branch }));
       },
       () => {
@@ -46,7 +56,7 @@ export function LocationConsentBanner() {
     );
   };
 
-  if (!visible) return branchName ? <div className="mx-auto max-w-7xl px-4 pt-3 sm:px-6 lg:px-8"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Unidade sugerida: {branchName}</div></div> : null;
+  if (!visible) return branchName ? <div className="mx-auto max-w-7xl px-4 pt-3 sm:px-6 lg:px-8"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 transition-opacity duration-500">Unidade sugerida: {branchName}</div></div> : null;
 
   return (
     <div className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur">

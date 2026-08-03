@@ -6,34 +6,32 @@ import { useCity } from './city-provider';
 import { trackEvent } from '@/lib/analytics';
 
 export function CitySelector() {
-  const { city, setCity } = useCity();
+  const { city, hasSelectedCity, setCity } = useCity();
 
   return (
-    <section className="rounded-3xl border border-border bg-white p-6 shadow-soft">
+    <section className="rounded-[1.4rem] border border-white/20 bg-white/10 p-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-md sm:p-5">
       <div className="flex items-center gap-3">
-        <MapPin className="h-5 w-5 text-brand-600" />
-        <h2 className="text-xl font-semibold text-foreground">Em qual cidade você está?</h2>
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/15">
+          <MapPin className="h-4 w-4 text-white" />
+        </div>
+        <h2 className="text-base font-semibold text-white sm:text-lg">Em qual cidade você está?</h2>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {cities.map((item) => {
-          const active = item.key === city;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                setCity(item.key);
-                trackEvent({ name: 'city_selected', params: { city: item.key } });
-              }}
-              className={`rounded-2xl border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${active ? 'border-brand-500 bg-brand-50' : 'border-border bg-slate-50 hover:bg-slate-100'}`}
-            >
-              <span className="block text-sm text-foreground/60">Cidade</span>
-              <span className="block text-lg font-semibold text-foreground">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <p className="mt-3 text-sm text-foreground/60">A seleção fica salva neste dispositivo e pode ser alterada a qualquer momento.</p>
+      <label className="mt-3 block sm:mt-4">
+        <span className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-white/70">Cidade</span>
+        <select
+          value={hasSelectedCity ? city : ''}
+          onChange={(event) => {
+            const nextCity = event.target.value as (typeof cities)[number]['key'];
+            setCity(nextCity);
+            trackEvent({ name: 'city_selected', params: { city: nextCity } });
+          }}
+          className="w-full rounded-[1.4rem] border border-white/20 bg-white/90 px-4 py-2.5 text-sm font-semibold text-foreground outline-none transition focus:border-brand-500 focus:bg-white sm:py-3 sm:text-base"
+        >
+          <option value="" disabled>Selecione</option>
+          {cities.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </select>
+      </label>
+      <p className="mt-2 text-xs text-white/70 sm:mt-3 sm:text-sm">Selecione sua cidade para consultar o preço.</p>
     </section>
   );
 }
