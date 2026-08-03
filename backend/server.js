@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const jwt = require('jsonwebtoken');
+const sendgridMail = require('@sendgrid/mail');
 const { ObjectId } = require('mongodb');
 const { getDb } = require('./db');
 
@@ -12,15 +13,19 @@ const jwtSecret = process.env.JWT_SECRET || 'dev-secret';
 const frontendUrl = process.env.FRONTEND_URL || '*';
 const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 const adminPassword = String(process.env.ADMIN_PASSWORD || '');
+const sendgridApiKey = String(process.env.SENDGRID_API_KEY || '').trim();
+const sendgridFromEmail = String(process.env.SENDGRID_FROM_EMAIL || '').trim();
 
 const pairCodes = new Map();
+
+if (sendgridApiKey) sendgridMail.setApiKey(sendgridApiKey);
 
 app.use(helmet());
 app.use(express.json());
 app.use(cors({ origin: frontendUrl === '*' ? true : frontendUrl, credentials: true }));
 
 function createTempCode() {
-  return String(Math.floor(Math.random() * 90) + 10);
+  return String(Math.floor(Math.random() * 900000) + 100000);
 }
 
 function createSessionToken(payload) {
@@ -64,16 +69,28 @@ function verifyAdminCredentials(email, password) {
   return email === adminEmail && password === adminPassword;
 }
 
-function handleAdminAuthRequest(req, res) {
+async function handleAdminAuthRequest(req, res) {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
   if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' });
   if (!verifyAdminCredentials(email, password)) return res.status(401).json({ error: 'Credenciais inválidas.' });
+  if (!sendgridApiKey || !sendgridFromEmail) {
+    return res.status(500).json({ error: 'SendGrid não configurado.' });
+  }
 
   const code = createTempCode();
   const expiresAt = Date.now() + 10 * 60 * 1000;
   pairCodes.set(email, { email, code, expiresAt });
-  res.json({ ok: true, email, code, expiresAt, prompt: 'Aprovar uma solicitação em meu aplicativo Tele Gás' });
+
+  await sendgridMail.send({
+    to: email,
+    from: sendgridFromEmail,
+    subject: 'Seu código de acesso Tele Gás',
+    text: `Seu código de acesso é ${code}. Ele expira em 10 minutos.`,
+    html: `<p>Seu código de acesso é <strong>${code}</strong>.</p><p>Ele expira em 10 minutos.</p>`
+  });
+
+  res.json({ ok: true, email, expiresAt, prompt: 'Digite o código enviado para seu email.' });
 }
 
 function handleAdminAuthConfirm(req, res) {

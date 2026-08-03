@@ -15,12 +15,14 @@ npm start
 - `FRONTEND_URL`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- `SENDGRID_API_KEY`
+- `SENDGRID_FROM_EMAIL`
 
 ## Routes
 
 - `GET /health`
-- `POST /admin/auth/request`
-- `POST /admin/auth/confirm`
+- `POST /admin/auth/request` (email + senha, envia código por email)
+- `POST /admin/auth/confirm` (confirma código de 6 dígitos)
 - `POST /admin/pair/request`
 - `POST /admin/pair/confirm`
 - `POST /orders`

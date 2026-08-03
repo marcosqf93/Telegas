@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { ChevronRight, CircleDot, Clock3, LogOut, MapPinned, ShieldCheck, Truck, Users, KeyRound } from 'lucide-react';
 import { orderStatuses, type OrderStatus } from '@/lib/admin';
+import { brand } from '@/lib/site-data';
 import { cn } from './ui/cn';
 
 type Driver = {
@@ -36,15 +38,16 @@ type Session = {
 
 type PendingCode = {
   email: string;
-  code: string;
+  code?: string;
   expiresAt: number;
+  prompt?: string;
 };
 
 const SESSION_KEY = 'telegas:admin-session';
 const PENDING_CODE_KEY = 'telegas:admin-pair-code';
 const ORDERS_KEY = 'telegas:admin-orders';
 const DRIVERS_KEY = 'telegas:admin-drivers';
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '')).replace(/\/$/, '');
 
 const seedOrders: AdminOrder[] = [
   { id: '#1048', customer: 'Carla Souza', city: 'aquidauana', product: 'Gás P13', quantity: 1, status: 'Novo', driverId: null, address: 'Santa Terezinha, Aquidauana', updatedAt: new Date().toISOString() },
@@ -76,8 +79,11 @@ function Badge({ children, tone = 'slate' }: { children: string; tone?: 'slate' 
 export function AdminPanel() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
   const [enteredCode, setEnteredCode] = useState('');
+  const [authStage, setAuthStage] = useState<'credentials' | 'approval'>('credentials');
+  const [authError, setAuthError] = useState('');
   const [orders, setOrders] = useState<AdminOrder[]>(seedOrders);
   const [drivers, setDrivers] = useState<Driver[]>(seedDrivers);
   const [selectedOrderId, setSelectedOrderId] = useState(seedOrders[2].id);
@@ -91,7 +97,10 @@ export function AdminPanel() {
     if (savedSession) setSession(JSON.parse(savedSession));
     if (savedOrders) setOrders(JSON.parse(savedOrders));
     if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
-    if (savedPending) setPendingCode(JSON.parse(savedPending));
+    if (savedPending) {
+      setPendingCode(JSON.parse(savedPending));
+      setAuthStage('approval');
+    }
   }, []);
 
   useEffect(() => {
@@ -130,24 +139,30 @@ export function AdminPanel() {
 
   const requestCode = () => {
     if (!email.trim()) return;
-    void fetch(`${API_BASE_URL}/admin/pair/request`, {
+    setAuthError('');
+    void fetch(`${API_BASE_URL}/admin/auth/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email, password })
     })
       .then(async (response) => {
         const payload = (await response.json()) as PendingCode & { ok?: boolean; error?: string };
         if (!response.ok) throw new Error(payload.error ?? 'Falha ao gerar código.');
         setPendingCode(payload);
+        setAuthStage('approval');
         setEnteredCode('');
       })
-      .catch(() => setPendingCode(null));
+      .catch((error: Error) => {
+        setAuthError(error.message || 'Falha ao autenticar.');
+        setPendingCode(null);
+      });
   };
 
   const confirmCode = () => {
     if (!pendingCode) return;
 
-    void fetch(`${API_BASE_URL}/admin/pair/confirm`, {
+    setAuthError('');
+    void fetch(`${API_BASE_URL}/admin/auth/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code: enteredCode })
@@ -159,60 +174,93 @@ export function AdminPanel() {
         setPendingCode(null);
         setEnteredCode('');
       })
-      .catch(() => undefined);
+      .catch((error: Error) => setAuthError(error.message || 'Código inválido.'));
   };
 
   const logout = () => {
     setSession(null);
     setEnteredCode('');
+    setPassword('');
+    setAuthStage('credentials');
+    setPendingCode(null);
+    setAuthError('');
   };
 
   const updateOrder = (orderId: string, next: Partial<AdminOrder>) => {
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...next, updatedAt: new Date().toISOString() } : order)));
   };
 
+  const handleLoginKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (authStage === 'credentials') requestCode();
+    else confirmCode();
+  };
+
   if (!session) {
     return (
-      <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[2rem] border border-border bg-white p-6 shadow-soft">
-            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
-              <ShieldCheck className="h-4 w-4" /> Admin seguro
+      <section className="relative min-h-[calc(100vh-0px)] overflow-hidden bg-slate-950">
+        <div className="absolute inset-0">
+          <Image src={brand.heroImage} alt="Fundo do painel" fill priority sizes="100vw" className="object-cover object-center opacity-35 blur-[1px] saturate-75" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.36),rgba(3,7,18,0.88)_58%,rgba(2,6,23,0.96)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.55)_0%,rgba(249,115,22,0.22)_50%,rgba(2,6,23,0.75)_100%)]" />
+        </div>
+
+        <div className="relative mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+          <div className="w-full max-w-[390px] rounded-[1.75rem] border border-white/30 bg-[#edf0ec]/96 px-7 py-8 shadow-[0_30px_90px_rgba(0,0,0,0.34)] backdrop-blur-md sm:px-8 sm:py-9">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
+              <img src={brand.logo} alt={brand.name} className="h-14 w-14 object-contain" loading="eager" />
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">Painel administrativo</h1>
-            <p className="mt-3 text-sm leading-6 text-foreground/70">Primeiro acesso com código temporário de 2 dígitos. Depois a sessão fica salva neste dispositivo.</p>
+
+            <div className="mt-4 text-center">
+              <h1 className="text-[1.35rem] font-semibold tracking-tight text-slate-800">Tele Gás</h1>
+              <p className="mt-1 text-sm text-slate-500">Administrador</p>
+            </div>
+
             <div className="mt-6 space-y-4">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-foreground">E-mail do admin</span>
-                <input value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-2xl border border-border px-4 py-3 outline-none focus:border-brand-500" placeholder="admin@telegas.com" />
-              </label>
-              <button type="button" onClick={requestCode} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-950 via-cyan-950 to-slate-900 px-5 py-3 text-sm font-semibold text-white hover:brightness-110">
-                <KeyRound className="h-4 w-4" /> Gerar código temporário
-              </button>
-              {pendingCode ? (
-                <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-4">
-                  <p className="text-sm font-semibold text-cyan-900">Código de 2 dígitos</p>
-                  <div className="mt-3 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-3xl font-bold tracking-[0.35em] text-foreground">
-                    <span>{pendingCode.code}</span>
-                    <span className="text-xs tracking-normal text-foreground/50">expira em 10 min</span>
+              {authStage === 'credentials' ? (
+                <>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-600">Email</span>
+                    <input value={email} onChange={(event) => setEmail(event.target.value)} onKeyDown={handleLoginKeyDown} className="w-full rounded-2xl border border-white/70 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" placeholder="quintana.mqf@gmail.com" />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-600">Senha</span>
+                    <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={handleLoginKeyDown} className="w-full rounded-2xl border border-white/70 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15" placeholder="••••••" />
+                  </label>
+
+                  <button type="button" onClick={requestCode} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(90deg,#2f9b57_0%,#25834a_50%,#1f6b3c_100%)] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(47,155,87,0.28)] transition hover:brightness-110">
+                    <KeyRound className="h-4 w-4" /> Entrar
+                  </button>
+                </>
+              ) : null}
+
+              {authStage === 'approval' && pendingCode ? (
+                <div className="rounded-[1.5rem] border border-orange-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">Verifique sua identidade</p>
+                      <p className="mt-1 text-sm text-slate-600">{pendingCode.prompt ?? 'Digite o código recebido no seu email.'}</p>
+                    </div>
+                    <ShieldCheck className="h-5 w-5 text-brand-600" />
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-cyan-900/80">Digite o código para confirmar o primeiro acesso neste aparelho.</p>
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-3xl font-bold tracking-[0.4em] text-slate-900">------</span>
+                    <span className="text-xs font-medium text-slate-500">6 dígitos</span>
+                  </div>
                   <div className="mt-4 flex gap-3">
-                    <input value={enteredCode} onChange={(event) => setEnteredCode(event.target.value.replace(/\D/g, '').slice(0, 2))} inputMode="numeric" maxLength={2} className="w-full rounded-2xl border border-cyan-200 px-4 py-3 text-center text-lg font-semibold tracking-[0.35em] outline-none focus:border-cyan-500" placeholder="00" />
-                    <button type="button" onClick={confirmCode} className="rounded-full bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600">Confirmar</button>
+                    <input value={enteredCode} onChange={(event) => setEnteredCode(event.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={handleLoginKeyDown} inputMode="numeric" maxLength={6} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-lg font-semibold tracking-[0.35em] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15" placeholder="000000" />
+                    <button type="button" onClick={confirmCode} className="w-full rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-black">Confirmar código</button>
                   </div>
+                  <p className="mt-3 text-center text-xs text-slate-500">Primeiro acesso neste dispositivo.</p>
                 </div>
               ) : null}
+
+              {authError ? <p className="text-sm font-medium text-red-700">{authError}</p> : null}
+
+              {authStage === 'approval' ? <button type="button" onClick={() => setAuthStage('credentials')} className="block w-full text-center text-sm text-emerald-700/80 hover:text-emerald-800">Voltar</button> : <button type="button" className="block w-full text-center text-sm text-emerald-700/80 hover:text-emerald-800">Esqueci minha senha</button>}
             </div>
-          </div>
-          <div className="rounded-[2rem] border border-border bg-slate-50 p-6 shadow-soft">
-            <h2 className="text-xl font-semibold text-foreground">O que você controla aqui</h2>
-            <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground/75">
-              <li className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 text-brand-600" /> Pedidos em tempo real</li>
-              <li className="flex gap-2"><Truck className="mt-1 h-4 w-4 text-brand-600" /> Entregador atribuído</li>
-              <li className="flex gap-2"><MapPinned className="mt-1 h-4 w-4 text-brand-600" /> Rastreamento no mapa</li>
-              <li className="flex gap-2"><Clock3 className="mt-1 h-4 w-4 text-brand-600" /> Status de entrega</li>
-            </ul>
           </div>
         </div>
       </section>
