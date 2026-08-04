@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { MapPin, ShieldCheck, X } from 'lucide-react';
 import { getLocalStorage, setLocalStorage } from '@/lib/utils';
 import { nearestBranch, nearestCity } from '@/lib/location-utils';
@@ -12,8 +13,11 @@ type SavedLocation = { accepted: boolean; branchKey?: string; cityKey?: CityKey 
 const STORAGE_KEY = 'telegas:location-consent';
 
 export function LocationConsentBanner() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [branchName, setBranchName] = useState<string | null>(null);
+
+  if (pathname.startsWith('/admin') || pathname.startsWith('/pedido')) return null;
 
   useEffect(() => {
     const saved = getLocalStorage<SavedLocation | null>(STORAGE_KEY, null);

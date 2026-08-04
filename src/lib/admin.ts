@@ -1,6 +1,6 @@
-export type OrderStatus = 'Novo' | 'Confirmado' | 'Em preparação' | 'Saiu para entrega' | 'Entregue' | 'Cancelado';
+export type OrderStatus = 'Novo' | 'Confirmado' | 'Em preparação' | 'Pronto para saída' | 'Saiu para entrega' | 'Entregue' | 'Cancelado' | 'Cliente ausente' | 'Endereço não localizado' | 'Pagamento recusado';
 
-export const orderStatuses: OrderStatus[] = ['Novo', 'Confirmado', 'Em preparação', 'Saiu para entrega', 'Entregue', 'Cancelado'];
+export const orderStatuses: OrderStatus[] = ['Novo', 'Confirmado', 'Em preparação', 'Pronto para saída', 'Saiu para entrega', 'Entregue', 'Cancelado', 'Cliente ausente', 'Endereço não localizado', 'Pagamento recusado'];
 
 export type AdminSection = 'products' | 'prices' | 'units' | 'hours' | 'banners' | 'promotions' | 'reviews' | 'faq' | 'orders' | 'reports';
 

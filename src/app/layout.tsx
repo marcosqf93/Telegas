@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Montserrat } from 'next/font/google';
+import { Inter, Manrope } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/header';
 import { CityProvider } from '@/components/city-provider';
@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 const siteUrl = process.env.URL ?? process.env.DEPLOY_PRIME_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? `https://${brand.domain}`;
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat' });
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -46,7 +46,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${montserrat.variable}`}>
+    <html lang="pt-BR" className={`${inter.variable} ${manrope.variable}`}>
       <body className="bg-background text-foreground antialiased">
         <JsonLd data={{
           '@context': 'https://schema.org',

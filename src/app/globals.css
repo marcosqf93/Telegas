@@ -33,7 +33,25 @@ body {
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--font-montserrat), Montserrat, Poppins, Inter, sans-serif;
+  font-family: var(--font-manrope), Manrope, Inter, sans-serif;
+}
+
+.admin-panel [class*='text-slate-950'],
+.admin-panel [class*='text-slate-900'] {
+  color: rgb(71 85 105) !important;
+}
+
+.admin-panel h1,
+.admin-panel h2,
+.admin-panel h3,
+.admin-panel h4 {
+  color: rgb(71 85 105) !important;
+  font-weight: 600 !important;
+}
+
+.admin-panel [class*='uppercase'][class*='tracking'] {
+  color: rgb(100 116 139) !important;
+  font-weight: 700 !important;
 }
 
 * {
