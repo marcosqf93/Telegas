@@ -89,7 +89,8 @@ app.get('/prices', authRequired, async (_, res) => {
 app.get('/admin/profile', authRequired, async (req, res) => {
   const collection = await adminProfileCollection();
   const email = String(req.user?.email || '').trim().toLowerCase();
-  const profile = await collection.findOne({ key: 'admin-profile', email });
+  const record = await collection.findOne({ key: 'admin-profile' });
+  const profile = record?.profile;
 
   res.json({
     ok: true,
@@ -118,7 +119,7 @@ app.put('/admin/profile', authRequired, async (req, res) => {
 
   const collection = await adminProfileCollection();
   await collection.updateOne(
-    { key: 'admin-profile', email },
+    { key: 'admin-profile' },
     { $set: { key: 'admin-profile', email, profile, updatedAt: new Date().toISOString() } },
     { upsert: true }
   );

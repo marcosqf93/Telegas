@@ -1,7 +1,7 @@
 "use client";
 
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type TouchEvent } from 'react';
 import { ArrowUpRight, Bell, Building2, ChevronRight, CircleDot, Clock3, LayoutDashboard, ListOrdered, LogOut, MapPinned, Menu, Pencil, Plus, RefreshCcw, Route, Search, Settings2, ShieldCheck, Truck, Trash2, Users, X, KeyRound } from 'lucide-react';
 import { orderStatuses, type OrderStatus } from '@/lib/admin';
 import { brand, cities, products, type CityKey } from '@/lib/site-data';
@@ -180,6 +180,7 @@ export function AdminPanel() {
   const [profileDraft, setProfileDraft] = useState<AdminProfile>(createDefaultProfile());
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileStatus, setProfileStatus] = useState('');
+  const [showWelcome, setShowWelcome] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
@@ -197,6 +198,7 @@ export function AdminPanel() {
   const [freshOrderIds, setFreshOrderIds] = useState<string[]>([]);
   const [newOrderNotice, setNewOrderNotice] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchFeedback, setSearchFeedback] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [unitFilter, setUnitFilter] = useState<'all' | CityKey>('all');
   const [driverFilter, setDriverFilter] = useState<'all' | string>('all');
@@ -208,7 +210,9 @@ export function AdminPanel() {
   const [mobileDetailsClosing, setMobileDetailsClosing] = useState(false);
   const [mobileSheetDragY, setMobileSheetDragY] = useState(0);
   const [mobileSheetTouchStartY, setMobileSheetTouchStartY] = useState<number | null>(null);
+  const [mobileNavActive, setMobileNavActive] = useState<'dashboard' | 'orders' | 'tracking' | 'drivers' | 'settings'>('dashboard');
   const ordersRef = useRef<AdminOrder[]>(seedOrders);
+  const searchFeedbackTimerRef = useRef<number | null>(null);
 
   const handleAuthExpired = () => {
     setSession(null);
@@ -351,6 +355,12 @@ export function AdminPanel() {
   }, [session?.token]);
 
   useEffect(() => {
+    setShowWelcome(true);
+    const timeout = window.setTimeout(() => setShowWelcome(false), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [session?.token]);
+
+  useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
 
@@ -391,6 +401,7 @@ export function AdminPanel() {
   const profileLabel = profile.name || profile.username || 'Administrador';
   const profileFirstName = profileLabel.split(' ').filter(Boolean)[0] || profileLabel;
   const profileInitials = profileLabel.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'A';
+  const unitCounts = useMemo(() => cities.map((city) => ({ ...city, count: orders.filter((order) => order.city === city.key).length })), [orders]);
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Pedidos', icon: ListOrdered },
@@ -399,13 +410,40 @@ export function AdminPanel() {
     { id: 'units', label: 'Unidades', icon: Building2 },
     { id: 'settings', label: 'Configurações', icon: Settings2 }
   ] as const;
-  const kpis = [
-    { title: 'Novos pedidos', value: stats.new, helper: '+3 nas ultimas 2h', icon: CircleDot, tone: 'amber' as const },
-    { title: 'Em preparação', value: stats.preparing, helper: 'Separação no balcão', icon: Clock3, tone: 'cyan' as const },
-    { title: 'Em rota', value: stats.onRoute, helper: `${activeDrivers.length} ativos`, icon: Truck, tone: 'brand' as const },
-    { title: 'Atrasados', value: stats.delayed, helper: 'Mais de 20 min', icon: MapPinned, tone: 'amber' as const },
-    { title: 'Entregues hoje', value: stats.delivered, helper: 'Finalizados agora', icon: ShieldCheck, tone: 'emerald' as const }
-  ] as const;
+  const jumpToOrders = (nextStatus: 'all' | OrderStatus, late = false) => {
+    setStatusFilter(nextStatus);
+    setLateOnly(late);
+    setMobileNavActive('orders');
+    setMobileMenuOpen(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById('orders')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const jumpToSection = (sectionId: 'dashboard' | 'orders' | 'tracking' | 'drivers' | 'settings') => {
+    setMobileNavActive(sectionId);
+    setMobileMenuOpen(false);
+    window.setTimeout(() => {
+      const targetId = sectionId === 'tracking' ? 'mobile-tracking' : sectionId === 'drivers' ? 'mobile-drivers' : sectionId === 'settings' ? 'mobile-settings' : sectionId;
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  };
+
+  const kpis = (stats.delayed > 0
+    ? [
+        { id: 'delayed', title: 'Atrasados', value: stats.delayed, helper: 'Requer atenção', icon: MapPinned, tone: 'rose' as const, urgent: true, onClick: () => jumpToOrders('all', true) },
+        { id: 'new', title: 'Novos pedidos', value: stats.new, helper: `${stats.new} aguardando atendimento`, icon: CircleDot, tone: 'amber' as const, onClick: () => jumpToOrders('Novo') },
+        { id: 'preparing', title: 'Em preparação', value: stats.preparing, helper: `${stats.preparing} em preparação`, icon: Clock3, tone: 'cyan' as const, onClick: () => jumpToOrders('Em preparação') },
+        { id: 'route', title: 'Em rota', value: stats.onRoute, helper: `${stats.onRoute} entregas em rota`, icon: Truck, tone: 'emerald' as const, onClick: () => jumpToOrders('Saiu para entrega') },
+        { id: 'delivered', title: 'Entregues hoje', value: stats.delivered, helper: `${stats.delivered} finalizadas hoje`, icon: ShieldCheck, tone: 'emerald' as const, onClick: () => jumpToOrders('Entregue') }
+      ]
+    : [
+        { id: 'new', title: 'Novos pedidos', value: stats.new, helper: `${stats.new} aguardando atendimento`, icon: CircleDot, tone: 'amber' as const, onClick: () => jumpToOrders('Novo') },
+        { id: 'preparing', title: 'Em preparação', value: stats.preparing, helper: `${stats.preparing} em preparação`, icon: Clock3, tone: 'cyan' as const, onClick: () => jumpToOrders('Em preparação') },
+        { id: 'route', title: 'Em rota', value: stats.onRoute, helper: `${stats.onRoute} entregas em rota`, icon: Truck, tone: 'emerald' as const, onClick: () => jumpToOrders('Saiu para entrega') },
+        { id: 'delivered', title: 'Entregues hoje', value: stats.delivered, helper: `${stats.delivered} finalizadas hoje`, icon: ShieldCheck, tone: 'emerald' as const, onClick: () => jumpToOrders('Entregue') },
+        { id: 'delayed', title: 'Atrasados', value: stats.delayed, helper: 'Tudo dentro do prazo', icon: MapPinned, tone: 'emerald' as const, onClick: () => jumpToOrders('all', true) }
+      ]);
 
   const filteredOrders = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -429,6 +467,31 @@ export function AdminPanel() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [driverFilter, lateOnly, orders, searchTerm, sortMode, statusFilter, unitFilter]);
+
+  const flashSearchFeedback = (message: string) => {
+    setSearchFeedback(message);
+    if (searchFeedbackTimerRef.current != null) {
+      window.clearTimeout(searchFeedbackTimerRef.current);
+    }
+    searchFeedbackTimerRef.current = window.setTimeout(() => {
+      setSearchFeedback('');
+      searchFeedbackTimerRef.current = null;
+    }, 2200);
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+
+    if (!filteredOrders.length) {
+      flashSearchFeedback('Não encontrado');
+      return;
+    }
+
+    setSelectedOrderId(filteredOrders[0].id);
+    setMobileNavActive('orders');
+    document.getElementById('orders')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const openOrderDetails = (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -480,30 +543,77 @@ export function AdminPanel() {
       ...profileDraft,
       email: profileDraft.email || session?.email || ''
     };
+
+    const readJson = async <T,>(response: Response): Promise<T & { ok?: boolean; error?: string }> => {
+      const text = await response.text();
+      try {
+        return JSON.parse(text) as T & { ok?: boolean; error?: string };
+      } catch {
+        return { ok: false, error: text || 'Resposta inválida do servidor.' } as T & { ok?: boolean; error?: string };
+      }
+    };
+
     void fetchAdmin(`${API_BASE_URL}/admin/profile`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: nextProfile })
     })
       .then(async (response) => {
-        const payload = (await response.json()) as { ok?: boolean; error?: string; profile?: AdminProfile };
+        const payload = await readJson<{ profile?: AdminProfile }>(response);
         if (!response.ok || !payload.profile) throw new Error(payload.error ?? 'Falha ao salvar perfil.');
         setProfile(payload.profile);
         setProfileDraft(payload.profile);
         setProfileStatus('Perfil salvo.');
-        window.setTimeout(() => setProfileOpen(false), 180);
+        setProfileOpen(false);
         window.setTimeout(() => setProfileStatus(''), 2400);
       })
       .catch((error: Error) => setProfileStatus(error.message || 'Falha ao salvar perfil.'));
   };
 
+  const handleProfileSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    saveProfile();
+  };
+
   const updateProfileAvatar = (file?: File) => {
     if (!file) return;
     const reader = new FileReader();
+
     reader.onload = () => {
-      const avatarUrl = typeof reader.result === 'string' ? reader.result : '';
-      setProfileDraft((current) => ({ ...current, avatarUrl }));
+      const source = typeof reader.result === 'string' ? reader.result : '';
+      if (!source) return;
+
+      const image = new window.Image();
+      image.onload = () => {
+        const maxSize = 512;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+          setProfileDraft((current) => ({ ...current, avatarUrl: source }));
+          setProfile((current) => ({ ...current, avatarUrl: source }));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+        const avatarUrl = canvas.toDataURL('image/jpeg', 0.82);
+        setProfileDraft((current) => ({ ...current, avatarUrl }));
+        setProfile((current) => ({ ...current, avatarUrl }));
+      };
+
+      image.onerror = () => {
+        setProfileDraft((current) => ({ ...current, avatarUrl: source }));
+        setProfile((current) => ({ ...current, avatarUrl: source }));
+      };
+      image.src = source;
     };
+
     reader.readAsDataURL(file);
   };
 
@@ -779,7 +889,7 @@ export function AdminPanel() {
   }
 
   return (
-    <section className="admin-panel min-h-screen bg-[#eef2f7] text-slate-700">
+    <section className="admin-panel min-h-screen bg-[#eef2f7] pb-24 text-slate-700 lg:pb-0">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-4 sm:px-6 lg:px-8">
         {mobileMenuOpen ? (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -870,67 +980,170 @@ export function AdminPanel() {
         </aside>
 
         <div className="min-w-0 flex-1 space-y-5 sm:space-y-6">
-          <header className="rounded-[2rem] border border-orange-100 bg-[linear-gradient(135deg,rgba(255,247,237,0.98)_0%,rgba(255,255,255,0.98)_45%,rgba(255,237,213,0.92)_100%)] p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-5">
+          <header className="-mx-4 rounded-t-[2rem] rounded-b-none border-x-0 border-b border-t-0 border-orange-300 bg-[linear-gradient(180deg,#2a1308_0%,#7a3310_52%,#f97316_100%)] px-4 py-3 shadow-[0_18px_60px_rgba(249,115,22,0.28)] backdrop-blur sm:mx-0 sm:rounded-[2rem] sm:border sm:p-4">
+
             <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1 font-[family-name:var(--font-manrope)] text-slate-950">
-                <p className="text-sm font-medium uppercase tracking-[0.24em] text-slate-500">Bem-vindo,</p>
-                <h1 className="text-[1.8rem] font-normal leading-none tracking-tight sm:text-4xl">{profileFirstName}.</h1>
+              <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:gap-3">
+                <button type="button" onClick={openProfileEditor} className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white shadow-[0_12px_28px_rgba(0,0,0,0.18)] ring-2 ring-white/35 sm:h-14 sm:w-14 md:h-16 md:w-16">
+                  {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profileLabel} className="h-full w-full object-cover" /> : <span className="text-lg font-semibold text-slate-600">{profileInitials}</span>}
+                </button>
+
+                <button type="button" onClick={openProfileEditor} aria-label="Editar perfil" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/12 text-white/90 backdrop-blur transition hover:bg-white/18">
+                  <Pencil className="h-3 w-3" />
+                </button>
+
+                <div className="min-w-0 space-y-0.5 font-[family-name:var(--font-manrope)] text-white">
+                  <p className={cn('text-sm font-medium uppercase tracking-[0.24em] text-white transition-all duration-500', showWelcome ? 'opacity-100' : 'opacity-0')}>
+                    Bem-vindo,
+                  </p>
+                  <p className="truncate text-xs text-white/85 sm:text-sm">{profile.username || profileLabel}</p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3">
-                <button type="button" aria-label={alertCount ? `${alertCount} alertas` : 'Sem alertas'} className={cn('relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-white shadow-sm sm:h-12 sm:w-12', freshOrderIds.length ? 'animate-pulse' : '')}>
-                  <Bell className="h-5 w-5 text-white" />
+                <button type="button" aria-label={alertCount ? `${alertCount} alertas` : 'Sem alertas'} className={cn('relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-orange-200 bg-white text-orange-500 shadow-sm sm:h-12 sm:w-12', freshOrderIds.length ? 'animate-pulse' : '')}>
+                  <Bell className="h-5 w-5 text-orange-500" />
                   {alertCount ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{alertCount > 9 ? '9+' : alertCount}</span> : null}
                 </button>
                 <button type="button" onClick={() => setMobileMenuOpen(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden">
                   <Menu className="h-5 w-5" />
                 </button>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <button type="button" onClick={openProfileEditor} className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm ring-1 ring-white/80 transition hover:scale-[1.02]">
-                    {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profileLabel} className="h-full w-full object-cover" /> : <span className="text-sm font-semibold text-slate-600">{profileInitials}</span>}
-                  </button>
-                </div>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)_auto]">
+            <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)_auto]">
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..." className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pl-11 text-sm outline-none transition focus:border-brand-500 focus:bg-white" />
+                <input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setSearchFeedback(''); }} onKeyDown={handleSearchKeyDown} placeholder="Buscar pedido, cliente ou telefone" autoComplete="off" className="w-full rounded-2xl border border-white/20 bg-white/75 px-4 py-2.5 pl-11 pr-10 text-sm outline-none backdrop-blur-md transition focus:border-white/30 focus:bg-white/85" />
+                {searchTerm ? <button type="button" aria-label="Limpar busca" onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : null}
               </label>
 
-              <label className="block">
-                <select value={unitFilter} onChange={(event) => setUnitFilter(event.target.value as 'all' | CityKey)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:bg-white">
+              <label className="hidden lg:block">
+                <select value={unitFilter} onChange={(event) => setUnitFilter(event.target.value as 'all' | CityKey)} className="w-full rounded-2xl border border-white/20 bg-white/75 px-4 py-3 text-sm outline-none backdrop-blur-md transition focus:border-white/30 focus:bg-white/85">
                   <option value="all">Todas as unidades</option>
                   {cities.map((city) => <option key={city.key} value={city.key}>{city.label}</option>)}
                 </select>
               </label>
 
-              <button type="button" aria-label="Atualizar" onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-2xl bg-[#0f5f5d] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,95,93,0.28)] transition hover:bg-[#0b4e4c]">
+              <button type="button" aria-label="Atualizar" onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-2xl bg-[#0f5f5d] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,95,93,0.28)] transition hover:bg-[#0b4e4c]">
                 <RefreshCcw className="h-4 w-4" />
               </button>
             </div>
 
-            {newOrderNotice ? <div className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200"><CircleDot className="h-4 w-4" /> {newOrderNotice}</div> : null}
+            <div className="mt-4 grid gap-3 lg:hidden sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-white">Status</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderStatus)} className="w-full rounded-2xl border border-white/20 bg-white/75 px-4 py-3 text-sm outline-none backdrop-blur-md transition focus:border-white/30 focus:bg-white/85">
+                  {(['all', 'Novo', 'Em preparação', 'Pronto para saída', 'Saiu para entrega', 'Entregue'] as const).map((item) => (
+                    <option key={item} value={item}>{item === 'all' ? 'Todos os status' : item}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-white">Unidade</span>
+                <select value={unitFilter} onChange={(event) => setUnitFilter(event.target.value as 'all' | CityKey)} className="w-full rounded-2xl border border-white/20 bg-white/75 px-4 py-3 text-sm outline-none backdrop-blur-md transition focus:border-white/30 focus:bg-white/85">
+                  <option value="all">Todas as unidades</option>
+                  {cities.map((city) => <option key={city.key} value={city.key}>{city.label} ({unitCounts.find((item) => item.key === city.key)?.count ?? 0})</option>)}
+                </select>
+              </label>
+            </div>
+
+            {searchFeedback ? <div className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 ring-1 ring-rose-200">{searchFeedback}</div> : null}
+
+            {newOrderNotice ? <div className="mt-2 hidden w-fit items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 sm:inline-flex"><CircleDot className="h-4 w-4" /> {newOrderNotice}</div> : null}
           </header>
 
-          <div id="dashboard" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div id="dashboard" className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-5">
             {kpis.map((item) => (
-              <StatCard key={item.title} title={item.title} value={String(item.value)} helper={item.helper} icon={item.icon} tone={item.tone} />
+              <StatCard key={item.id} title={item.title} value={String(item.value)} helper={item.helper} icon={item.icon} tone={item.tone} urgent={item.urgent} onClick={item.onClick} />
             ))}
           </div>
 
-          <div className="flex flex-nowrap gap-2 overflow-x-auto rounded-[1.5rem] border border-white bg-white/85 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:flex-wrap sm:overflow-visible">
+          <div className="space-y-4 lg:hidden">
+            {mobileNavActive === 'tracking' ? (
+              <section id="mobile-tracking" className="rounded-[1.75rem] border border-white bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Entregas</p>
+                    <h2 className="mt-1 text-xl font-semibold text-slate-950">Rastreio rápido</h2>
+                  </div>
+                  <Route className="h-5 w-5 text-brand-600" />
+                </div>
+                <div className="mt-4 rounded-[1.35rem] bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-950">{selectedOrder.id}</p>
+                  <p className="mt-1 text-sm text-slate-600">{selectedOrder.customer} • {cityLabel(selectedOrder.city)}</p>
+                  <p className="mt-3 text-sm text-slate-500">{selectedDriver ? `Entregador: ${selectedDriver.name}` : 'Atribua um entregador para ativar o rastreio.'}</p>
+                  <button type="button" onClick={() => openOrderDetails(selectedOrder.id)} className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white">
+                    Ver pedido <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
+            {mobileNavActive === 'drivers' ? (
+              <section id="mobile-drivers" className="rounded-[1.75rem] border border-white bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Equipe</p>
+                    <h2 className="mt-1 text-xl font-semibold text-slate-950">Entregadores ativos</h2>
+                  </div>
+                  <Users className="h-5 w-5 text-brand-600" />
+                </div>
+                <div className="mt-4 space-y-2">
+                  {activeDrivers.slice(0, 4).map((driver) => (
+                    <div key={driver.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="font-semibold text-slate-950">{driver.name}</p>
+                      <p className="text-sm text-slate-500">{driver.phone} • {cityLabel(driver.city)}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {mobileNavActive === 'settings' ? (
+              <section id="mobile-settings" className="rounded-[1.75rem] border border-white bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Mais</p>
+                    <h2 className="mt-1 text-xl font-semibold text-slate-950">Painel do dia</h2>
+                  </div>
+                  <Settings2 className="h-5 w-5 text-brand-600" />
+                </div>
+                <div className="mt-4 space-y-3 rounded-[1.35rem] bg-slate-50 p-4 text-sm text-slate-700">
+                  <div className="flex items-center justify-between"><span>Sessão</span><strong className="text-slate-950">{session.email}</strong></div>
+                  <div className="flex items-center justify-between"><span>Pedidos totais</span><strong className="text-slate-950">{stats.orders}</strong></div>
+                  <div className="flex items-center justify-between"><span>Atrasos</span><strong className={cn('font-semibold', stats.delayed > 0 ? 'text-rose-700' : 'text-emerald-700')}>{stats.delayed > 0 ? `${stats.delayed} requer atenção` : 'Tudo dentro do prazo'}</strong></div>
+                </div>
+                <button type="button" onClick={openProfileEditor} className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(245,158,11,0.28)]">
+                  Editar perfil
+                </button>
+              </section>
+            ) : null}
+          </div>
+
+          <div className="hidden flex-nowrap gap-2 overflow-x-auto rounded-[1.5rem] border border-white/30 bg-white/70 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-md sm:flex-wrap sm:overflow-visible lg:flex">
             {(['all', 'Novo', 'Em preparação', 'Pronto para saída', 'Saiu para entrega', 'Entregue'] as const).map((item) => (
-              <button key={item} type="button" onClick={() => setStatusFilter(item)} className={cn('rounded-full px-4 py-2 text-sm font-semibold transition', statusFilter === item ? 'bg-slate-900 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+              <button key={item} type="button" onClick={() => setStatusFilter(item)} className={cn('rounded-full border px-4 py-2 text-sm font-semibold transition backdrop-blur-md', statusFilter === item ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-white/25 bg-white/70 text-slate-700 hover:bg-white/90')}>
                 {item === 'all' ? 'Todos os status' : item}
               </button>
             ))}
-            <button type="button" onClick={() => setLateOnly((current) => !current)} className={cn('rounded-full px-4 py-2 text-sm font-semibold transition', lateOnly ? 'bg-amber-500 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+            <button type="button" onClick={() => setLateOnly((current) => !current)} className={cn('rounded-full border px-4 py-2 text-sm font-semibold transition backdrop-blur-md', lateOnly ? 'border-amber-500 bg-amber-500 text-white shadow-sm' : 'border-white/25 bg-white/70 text-slate-700 hover:bg-white/90')}>
               Atrasados
             </button>
-            {saveNotice ? <span className="ml-auto rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">{saveNotice}</span> : null}
-            {lastChange ? <button type="button" onClick={undoLastChange} className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Desfazer</button> : null}
+            {saveNotice ? <span className="ml-auto rounded-full border border-emerald-200 bg-white/70 px-4 py-2 text-sm font-medium text-emerald-700 backdrop-blur-md">{saveNotice}</span> : null}
+            {lastChange ? <button type="button" onClick={undoLastChange} className="rounded-full border border-emerald-200 bg-white/70 px-4 py-2 text-sm font-semibold text-emerald-700 backdrop-blur-md hover:bg-white/90">Desfazer</button> : null}
+          </div>
+
+          <div className="hidden flex-nowrap gap-2 overflow-x-auto rounded-[1.5rem] border border-white/30 bg-white/70 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-md sm:flex-wrap sm:overflow-visible lg:flex">
+            <button type="button" onClick={() => setUnitFilter('all')} className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition', unitFilter === 'all' ? 'bg-brand-500 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+              Todas as unidades
+            </button>
+            {unitCounts.map((city) => (
+              <button key={city.key} type="button" onClick={() => setUnitFilter(city.key)} className={cn('shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition backdrop-blur-md', unitFilter === city.key ? 'border-brand-500 bg-brand-500 text-white shadow-sm' : 'border-white/25 bg-white/70 text-slate-700 hover:bg-white/90')}>
+                {city.label} <span className="ml-1 opacity-70">({city.count})</span>
+              </button>
+            ))}
           </div>
 
           <div id="orders" className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)]">
@@ -1332,10 +1545,12 @@ export function AdminPanel() {
                   <div>
                     {profileStatus ? <p className="mt-1 text-sm text-slate-500">{profileStatus}</p> : null}
                   </div>
-                  <button type="button" onClick={() => setProfileOpen(false)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600">Fechar</button>
+                   <button type="button" onClick={() => setProfileOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600">
+                     <X className="h-4 w-4" />
+                   </button>
                 </div>
 
-                <div className="grid gap-5 p-5 md:grid-cols-[140px_1fr]">
+                <form className="grid gap-5 p-5 md:grid-cols-[140px_1fr]" onSubmit={handleProfileSubmit}>
                   <div className="space-y-3">
                     <button type="button" onClick={() => document.getElementById('profile-avatar-input')?.click()} className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200 transition hover:scale-[1.01]">
                       {profileDraft.avatarUrl ? <img src={profileDraft.avatarUrl} alt={profileDraft.name || profileDraft.username} className="h-full w-full object-cover" /> : <span className="text-3xl font-semibold text-slate-500">{profileInitials}</span>}
@@ -1372,33 +1587,86 @@ export function AdminPanel() {
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => setProfileDraft(profile)} className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reverter</button>
-                        <button type="button" onClick={saveProfile} className="rounded-full bg-[linear-gradient(90deg,#0f766e_0%,#0f5f70_55%,#082b35_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,43,53,0.28)] transition hover:brightness-110">Salvar perfil</button>
+                        <button type="submit" className="rounded-full bg-[linear-gradient(90deg,#0f766e_0%,#0f5f70_55%,#082b35_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,43,53,0.28)] transition hover:brightness-110">Salvar perfil</button>
                       </div>
                     </div>
                   </div>
-                </div>
+                </form>
               </div>
             </div>
           ) : null}
+
+          <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur lg:hidden">
+            <div className="mx-auto grid max-w-3xl grid-cols-5 gap-1">
+              {[
+                { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
+                { id: 'orders', label: 'Pedidos', icon: ListOrdered },
+                { id: 'tracking', label: 'Entregas', icon: Route },
+                { id: 'drivers', label: 'Equipe', icon: Truck },
+                { id: 'settings', label: 'Mais', icon: Settings2 }
+              ].map((item) => {
+                const Icon = item.icon;
+                const active = mobileNavActive === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => jumpToSection(item.id as 'dashboard' | 'orders' | 'tracking' | 'drivers' | 'settings')}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition',
+                      active ? 'bg-brand-500 text-white shadow-[0_8px_24px_rgba(245,158,11,0.28)]' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
         </div>
       </div>
     </section>
   );
 }
 
-function StatCard({ title, value, helper, icon: Icon, tone = 'brand' }: { title: string; value: string; helper: string; icon: typeof CircleDot; tone?: 'brand' | 'emerald' | 'amber' | 'cyan' }) {
+function StatCard({ title, value, helper, icon: Icon, tone = 'brand', urgent = false, onClick }: { title: string; value: string; helper: string; icon: typeof CircleDot; tone?: 'brand' | 'emerald' | 'amber' | 'cyan' | 'rose'; urgent?: boolean; onClick?: () => void }) {
   const toneClass =
+    tone === 'rose' ? 'from-rose-500/10 to-rose-50 border-rose-200 text-rose-700' :
     tone === 'emerald' ? 'from-emerald-500/10 to-emerald-50 border-emerald-100 text-emerald-700' :
     tone === 'amber' ? 'from-amber-500/10 to-amber-50 border-amber-100 text-amber-700' :
     tone === 'cyan' ? 'from-cyan-500/10 to-cyan-50 border-cyan-100 text-cyan-700' :
     'from-brand-500/10 to-brand-50 border-brand-100 text-brand-700';
 
-  return (
-    <div className={cn('relative overflow-hidden rounded-[1.5rem] border bg-gradient-to-br p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)]', toneClass)}>
-      <Icon className="absolute right-4 top-4 h-5 w-5 opacity-60" />
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{title}</p>
-      <p className="mt-3 text-3xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-2 text-sm text-slate-600">{helper}</p>
-    </div>
+  const cardClassName = cn('group relative min-h-[96px] overflow-hidden rounded-[1.4rem] border bg-gradient-to-br p-3 text-left shadow-[0_14px_30px_rgba(15,23,42,0.06)] transition sm:min-h-[132px] sm:p-4', onClick ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md' : '', urgent ? 'ring-2 ring-rose-200' : '', toneClass);
+
+  const content = (
+    <>
+      <div className={cn('absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/70 ring-1 ring-white/80 sm:right-4 sm:top-4 sm:h-9 sm:w-9', urgent ? 'animate-pulse' : '')}>
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+      </div>
+      <div className="flex h-full flex-col justify-between gap-2 sm:block">
+        <div className="space-y-1 pr-6 sm:pr-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-xs sm:tracking-[0.22em]">{title}</p>
+          <p className="truncate text-[11px] text-slate-600 sm:hidden">{helper}</p>
+        </div>
+        <div className="flex items-end justify-between gap-2 sm:block">
+          <p className="text-2xl font-semibold leading-none text-slate-950 sm:mt-3 sm:text-3xl">{value}</p>
+          <div className="hidden items-center gap-1 sm:mt-2 sm:flex sm:text-sm sm:text-slate-600">
+            <span>{helper}</span>
+            {onClick ? <ChevronRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" /> : null}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  return onClick ? (
+    <button type="button" onClick={onClick} className={cardClassName}>
+      {content}
+    </button>
+  ) : (
+    <div className={cardClassName}>{content}</div>
   );
 }
