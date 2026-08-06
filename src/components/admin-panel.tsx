@@ -14,6 +14,7 @@ type Driver = {
   city: 'aquidauana' | 'anastacio' | 'miranda';
   phone: string;
   active: boolean;
+  avatarUrl: string;
   lat: number;
   lng: number;
   lastSeenAt: string;
@@ -25,6 +26,7 @@ type DriverDraft = {
   phone: string;
   city: Driver['city'];
   active: boolean;
+  avatarUrl: string;
 };
 
 type AdminOrder = {
@@ -97,9 +99,9 @@ const seedOrders: AdminOrder[] = [
 ];
 
 const seedDrivers: Driver[] = [
-  { id: 'd1', name: 'Luiz', city: 'aquidauana', phone: '(67) 99999-1111', active: true, lat: -20.4774, lng: -55.7891, lastSeenAt: new Date().toISOString() },
-  { id: 'd2', name: 'Rafael', city: 'anastacio', phone: '(67) 99999-2222', active: true, lat: -20.48, lng: -55.808, lastSeenAt: new Date().toISOString() },
-  { id: 'd3', name: 'Paulo', city: 'miranda', phone: '(67) 99999-3333', active: true, lat: -20.2408, lng: -56.3783, lastSeenAt: new Date().toISOString() }
+  { id: 'd1', name: 'Luiz', city: 'aquidauana', phone: '(67) 99999-1111', active: true, avatarUrl: '', lat: -20.4774, lng: -55.7891, lastSeenAt: new Date().toISOString() },
+  { id: 'd2', name: 'Rafael', city: 'anastacio', phone: '(67) 99999-2222', active: true, avatarUrl: '', lat: -20.48, lng: -55.808, lastSeenAt: new Date().toISOString() },
+  { id: 'd3', name: 'Paulo', city: 'miranda', phone: '(67) 99999-3333', active: true, avatarUrl: '', lat: -20.2408, lng: -56.3783, lastSeenAt: new Date().toISOString() }
 ];
 
 function createInitialPriceMatrix(): PriceMatrix {
@@ -189,7 +191,7 @@ export function AdminPanel() {
   const [authError, setAuthError] = useState('');
   const [orders, setOrders] = useState<AdminOrder[]>(seedOrders);
   const [drivers, setDrivers] = useState<Driver[]>(seedDrivers);
-  const [driverDraft, setDriverDraft] = useState<DriverDraft>({ name: '', phone: '', city: 'aquidauana', active: true });
+  const [driverDraft, setDriverDraft] = useState<DriverDraft>({ name: '', phone: '', city: 'aquidauana', active: true, avatarUrl: '' });
   const [driverStatus, setDriverStatus] = useState('');
   const [priceDrafts, setPriceDrafts] = useState<PriceMatrix>(createInitialPriceMatrix());
   const [priceStatus, setPriceStatus] = useState('');
@@ -561,8 +563,10 @@ export function AdminPanel() {
       .then(async (response) => {
         const payload = await readJson<{ profile?: AdminProfile }>(response);
         if (!response.ok || !payload.profile) throw new Error(payload.error ?? 'Falha ao salvar perfil.');
-        setProfile(payload.profile);
-        setProfileDraft(payload.profile);
+        const savedProfile = payload.profile;
+        setProfile(savedProfile);
+        setProfileDraft(savedProfile);
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(savedProfile));
         setProfileStatus('Perfil salvo.');
         setProfileOpen(false);
         window.setTimeout(() => setProfileStatus(''), 2400);
@@ -617,6 +621,43 @@ export function AdminPanel() {
     reader.readAsDataURL(file);
   };
 
+  const updateDriverAvatar = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const source = typeof reader.result === 'string' ? reader.result : '';
+      if (!source) return;
+
+      const image = new window.Image();
+      image.onload = () => {
+        const maxSize = 512;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+          setDriverDraft((current) => ({ ...current, avatarUrl: source }));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+        const avatarUrl = canvas.toDataURL('image/jpeg', 0.82);
+        setDriverDraft((current) => ({ ...current, avatarUrl }));
+      };
+
+      image.onerror = () => setDriverDraft((current) => ({ ...current, avatarUrl: source }));
+      image.src = source;
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const requestCode = () => {
     if (!email.trim()) return;
     setAuthError('');
@@ -636,6 +677,11 @@ export function AdminPanel() {
         setAuthError(error.message || 'Falha ao autenticar.');
         setPendingCode(null);
       });
+  };
+
+  const resendCode = () => {
+    if (!email.trim() || !password) return;
+    requestCode();
   };
 
   const confirmCode = () => {
@@ -667,7 +713,7 @@ export function AdminPanel() {
     setAuthStage('credentials');
     setPendingCode(null);
     setAuthError('');
-    setDriverDraft({ name: '', phone: '', city: 'aquidauana', active: true });
+    setDriverDraft({ name: '', phone: '', city: 'aquidauana', active: true, avatarUrl: '' });
     setDriverStatus('');
     setPriceStatus('');
     setSaveNotice('');
@@ -768,8 +814,8 @@ export function AdminPanel() {
     if (resetStatus) setDriverStatus('');
     setDriverDraft(
       driver
-        ? { id: driver.id, name: driver.name, phone: driver.phone, city: driver.city, active: driver.active }
-        : { name: '', phone: '', city: 'aquidauana', active: true }
+        ? { id: driver.id, name: driver.name, phone: driver.phone, city: driver.city, active: driver.active, avatarUrl: driver.avatarUrl ?? '' }
+        : { name: '', phone: '', city: 'aquidauana', active: true, avatarUrl: '' }
     );
   };
 
@@ -787,9 +833,16 @@ export function AdminPanel() {
         const payload = (await response.json()) as { ok?: boolean; error?: string; driver?: Driver };
         if (!response.ok || !payload.driver) throw new Error(payload.error ?? 'Falha ao salvar entregador.');
         setDrivers((current) => {
-          const exists = current.some((item) => item.id === payload.driver?.id);
-          return exists ? current.map((item) => (item.id === payload.driver?.id ? payload.driver! : item)) : [...current, payload.driver!];
+          const normalizedDriver = { ...payload.driver!, avatarUrl: payload.driver?.avatarUrl ?? '' };
+          const exists = current.some((item) => item.id === normalizedDriver.id);
+          return exists ? current.map((item) => (item.id === normalizedDriver.id ? normalizedDriver : item)) : [...current, normalizedDriver];
         });
+        void fetchAdmin(`${API_BASE_URL}/drivers`)
+          .then(async (refreshResponse) => {
+            const refreshPayload = (await refreshResponse.json()) as { ok?: boolean; drivers?: Driver[] };
+            if (refreshResponse.ok && refreshPayload.drivers) setDrivers(refreshPayload.drivers.map((driver) => ({ ...driver, avatarUrl: driver.avatarUrl ?? '' })));
+          })
+          .catch(() => undefined);
         openDriverForm(undefined, false);
         setDriverStatus(isEditing ? 'Entregador atualizado.' : 'Entregador cadastrado.');
         window.setTimeout(() => setDriverStatus(''), 2500);
@@ -806,6 +859,12 @@ export function AdminPanel() {
         const payload = (await response.json()) as { ok?: boolean; error?: string };
         if (!response.ok) throw new Error(payload.error ?? 'Falha ao excluir entregador.');
         setDrivers((current) => current.filter((item) => item.id !== driverId));
+        void fetchAdmin(`${API_BASE_URL}/drivers`)
+          .then(async (refreshResponse) => {
+            const refreshPayload = (await refreshResponse.json()) as { ok?: boolean; drivers?: Driver[] };
+            if (refreshResponse.ok && refreshPayload.drivers) setDrivers(refreshPayload.drivers.map((driver) => ({ ...driver, avatarUrl: driver.avatarUrl ?? '' })));
+          })
+          .catch(() => undefined);
         if (driverDraft.id === driverId) openDriverForm(undefined, false);
         setDriverStatus('Entregador excluído.');
         window.setTimeout(() => setDriverStatus(''), 2500);
@@ -874,6 +933,7 @@ export function AdminPanel() {
                     <p className="mt-2 text-right text-xs text-slate-200/60">6 dígitos</p>
                   </label>
                   <button type="button" onClick={confirmCode} className="mt-4 w-full rounded-full bg-[linear-gradient(90deg,#0f766e_0%,#0f5f70_55%,#082b35_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,43,53,0.28)] transition hover:brightness-110">Confirmar código</button>
+                  <button type="button" onClick={resendCode} className="mt-2 w-full rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15">Reenviar código</button>
                   <p className="mt-3 text-center text-xs text-slate-200/65">Primeiro acesso neste dispositivo.</p>
                 </div>
               ) : null}
@@ -983,13 +1043,13 @@ export function AdminPanel() {
           <header className="-mx-4 rounded-t-[2rem] rounded-b-none border-x-0 border-b border-t-0 border-orange-300 bg-[linear-gradient(180deg,#2a1308_0%,#7a3310_52%,#f97316_100%)] px-4 py-3 shadow-[0_18px_60px_rgba(249,115,22,0.28)] backdrop-blur sm:mx-0 sm:rounded-[2rem] sm:border sm:p-4">
 
             <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:gap-3">
+              <div className="flex min-w-0 items-center gap-0.5 sm:gap-1 md:gap-2">
                 <button type="button" onClick={openProfileEditor} className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white shadow-[0_12px_28px_rgba(0,0,0,0.18)] ring-2 ring-white/35 sm:h-14 sm:w-14 md:h-16 md:w-16">
                   {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profileLabel} className="h-full w-full object-cover" /> : <span className="text-lg font-semibold text-slate-600">{profileInitials}</span>}
                 </button>
 
-                <button type="button" onClick={openProfileEditor} aria-label="Editar perfil" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/12 text-white/90 backdrop-blur transition hover:bg-white/18">
-                  <Pencil className="h-3 w-3" />
+                <button type="button" onClick={openProfileEditor} aria-label="Editar perfil" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/12 text-white/90 backdrop-blur transition hover:bg-white/18">
+                  <Pencil className="h-2.5 w-2.5" />
                 </button>
 
                 <div className="min-w-0 space-y-0.5 font-[family-name:var(--font-manrope)] text-white">
@@ -1092,9 +1152,14 @@ export function AdminPanel() {
                 </div>
                 <div className="mt-4 space-y-2">
                   {activeDrivers.slice(0, 4).map((driver) => (
-                    <div key={driver.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="font-semibold text-slate-950">{driver.name}</p>
-                      <p className="text-sm text-slate-500">{driver.phone} • {cityLabel(driver.city)}</p>
+                    <div key={driver.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
+                        {driver.avatarUrl ? <img src={driver.avatarUrl} alt={driver.name} className="h-full w-full object-cover" /> : <span className="text-xs font-semibold text-slate-500">{driver.name.slice(0, 2).toUpperCase()}</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-950">{driver.name}</p>
+                        <p className="truncate text-sm text-slate-500">{driver.phone} • {cityLabel(driver.city)}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1185,7 +1250,14 @@ export function AdminPanel() {
                         <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs sm:text-sm">{order.product} × {order.quantity}</span>
                         <span className="hidden shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs sm:inline-flex sm:text-sm">{order.unitName}</span>
                         <span className={cn('shrink-0 rounded-full px-3 py-1 text-xs font-medium sm:text-sm', severity === 'late' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600')}>{statusLabel(order)}</span>
-                        {driver ? <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs sm:text-sm">{driver.name}</span> : null}
+                        {driver ? (
+                          <span className="shrink-0 inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs sm:text-sm">
+                            <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
+                              {driver.avatarUrl ? <img src={driver.avatarUrl} alt={driver.name} className="h-full w-full object-cover" /> : <span className="text-[9px] font-semibold text-slate-500">{driver.name.slice(0, 2).toUpperCase()}</span>}
+                            </span>
+                            {driver.name}
+                          </span>
+                        ) : null}
                       </div>
 
                       <div className="mt-3 flex items-center justify-between">
@@ -1355,6 +1427,16 @@ export function AdminPanel() {
                   </div>
 
                   <div className="mt-4 grid gap-3">
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => document.getElementById('driver-avatar-input')?.click()} className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm ring-1 ring-white/80 transition hover:scale-[1.01]">
+                        {driverDraft.avatarUrl ? <img src={driverDraft.avatarUrl} alt={driverDraft.name || 'Entregador'} className="h-full w-full object-cover" /> : <span className="text-sm font-semibold text-slate-500">{driverDraft.name ? driverDraft.name.slice(0, 2).toUpperCase() : 'D'}</span>}
+                      </button>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-900">Foto do entregador</p>
+                        <p className="text-xs text-slate-500">Clique para trocar a imagem</p>
+                      </div>
+                      <input id="driver-avatar-input" type="file" accept="image/*" onChange={(event) => updateDriverAvatar(event.target.files?.[0] ?? undefined)} className="hidden" />
+                    </div>
                     <input value={driverDraft.name} onChange={(event) => setDriverDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Nome" className="w-full rounded-2xl border border-white bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500" />
                     <input value={driverDraft.phone} onChange={(event) => setDriverDraft((current) => ({ ...current, phone: event.target.value }))} placeholder="Telefone" className="w-full rounded-2xl border border-white bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500" />
                     <select value={driverDraft.city} onChange={(event) => setDriverDraft((current) => ({ ...current, city: event.target.value as CityKey }))} className="w-full rounded-2xl border border-white bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500">
@@ -1376,9 +1458,14 @@ export function AdminPanel() {
                   {drivers.map((driver) => (
                     <div key={driver.id} className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-950">{driver.name}</p>
-                          <p className="text-sm text-slate-500">{driver.phone} • {cityLabel(driver.city)}</p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 shadow-sm">
+                            {driver.avatarUrl ? <img src={driver.avatarUrl} alt={driver.name} className="h-full w-full object-cover" /> : <span className="text-xs font-semibold text-slate-500">{driver.name.slice(0, 2).toUpperCase()}</span>}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-950">{driver.name}</p>
+                            <p className="text-sm text-slate-500">{driver.phone} • {cityLabel(driver.city)}</p>
+                          </div>
                         </div>
                         <Badge tone={driver.active ? 'emerald' : 'slate'}>{driver.active ? 'Online' : 'Offline'}</Badge>
                       </div>
