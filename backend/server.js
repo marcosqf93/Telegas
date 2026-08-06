@@ -89,7 +89,7 @@ app.get('/prices', authRequired, async (_, res) => {
 app.get('/admin/profile', authRequired, async (req, res) => {
   const collection = await adminProfileCollection();
   const email = String(req.user?.email || '').trim().toLowerCase();
-  const record = await collection.findOne({ key: 'admin-profile' });
+  const record = await collection.findOne({ _id: 'admin-profile' }) || await collection.findOne({ key: 'admin-profile' });
   const profile = record?.profile;
 
   res.json({
@@ -118,9 +118,9 @@ app.put('/admin/profile', authRequired, async (req, res) => {
   if (!profile.email) return res.status(400).json({ error: 'Informe o e-mail.' });
 
   const collection = await adminProfileCollection();
-  await collection.updateOne(
-    { key: 'admin-profile' },
-    { $set: { key: 'admin-profile', email, profile, updatedAt: new Date().toISOString() } },
+  await collection.replaceOne(
+    { _id: 'admin-profile' },
+    { _id: 'admin-profile', key: 'admin-profile', email, profile, updatedAt: new Date().toISOString() },
     { upsert: true }
   );
 
@@ -143,6 +143,7 @@ app.post('/drivers', authRequired, async (req, res) => {
     city: String(payload.city || 'aquidauana').trim(),
     phone: String(payload.phone || '').trim(),
     active: Boolean(payload.active),
+    avatarUrl: String(payload.avatarUrl || '').trim(),
     lat: Number(payload.lat || 0),
     lng: Number(payload.lng || 0),
     lastSeenAt: new Date().toISOString()
@@ -165,6 +166,7 @@ app.patch('/drivers/:id', authRequired, async (req, res) => {
   if (payload.city != null) updates.city = String(payload.city).trim();
   if (payload.phone != null) updates.phone = String(payload.phone).trim();
   if (payload.active != null) updates.active = Boolean(payload.active);
+  if (payload.avatarUrl != null) updates.avatarUrl = String(payload.avatarUrl).trim();
 
   const result = await collection.findOneAndUpdate(
     { id: req.params.id },
