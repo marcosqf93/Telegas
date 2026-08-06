@@ -94,7 +94,7 @@ app.get('/admin/profile', authRequired, async (req, res) => {
 
   res.json({
     ok: true,
-    profile: profile?.profile ?? {
+    profile: profile ?? {
       name: 'Administrador',
       email,
       phone: '',
